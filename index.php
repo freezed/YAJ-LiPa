@@ -27,17 +27,17 @@
  *
  */
 
-// CONSTANT
-define('CONTENT_DIR', 'contenu/');
-define('AAC_BASE_NAME', 'AndroidApplicationCrash');
-define('AAC_PATTERN', '#AndroidApplicationCrash#');
+/**********
+ * CONFIG *
+ **********/
 
-// VARIABLES
-$organisedContent = array();
-$filesList = scandir(CONTENT_DIR);
-$filesInfo = array();
+define('CONTENT_DIR', 'contenu/');
+define('BASE_NAME', 'AndroidApplicationCrash');
+define('PATTERN', '#AndroidApplicationCrash#');
+define('FILE_CONTENT', '<p>Choississez un fichier...</p>');
+
 $htmlList = '<li><a href="'.$_SERVER['SCRIPT_NAME'].'" title="Retour index">Home</a></li>'.PHP_EOL;
-$fileContent = '<p>Choississez un fichier...</p>';
+$organisedContent = '<p>No valid ID</p>';
 
 // PATTERN/REPLACEMENT FOR PRE-PROCESSING
 $pattern[0] = '#, #';
@@ -50,48 +50,76 @@ $replacement[1] = 'NULL';
 $replacement[2] = '{';
 $replacement[3] = '';
 
+
+/*************
+ * FUNCTIONS *
+ *************/
+
 // GET FILE LIST
-$i=0;
-foreach($filesList as $file) {
+function get_file_list($htmlList, $contentDir=CONTENT_DIR, $pattern=PATTERN)
+{
+	$i=0;
+	$filesList = scandir($contentDir);
+	$filesInfo = array();
 
-	if(!is_dir(CONTENT_DIR.$file) AND preg_match(AAC_PATTERN, $file)) {
-		$explodedFileName = explode('.', $file);
-		$tstp = explode('-', $explodedFileName[0]);
+	foreach($filesList as $file) {
 
-		$filesInfo[$i]['full_name'] = $file;
-		$filesInfo[$i]['short_name'] = $explodedFileName[0];
-		$filesInfo[$i]['timestamp'] = $tstp[1];
-		$filesInfo[$i]['md5'] = md5_file(CONTENT_DIR.$file);
+		if(!is_dir($contentDir.$file) AND preg_match($pattern, $file)) {
+			$explodedFileName = explode('.', $file);
+			$tstp = explode('-', $explodedFileName[0]);
 
-		$htmlList .= '<li><a href="'.$_SERVER['SCRIPT_NAME'].'?id='.$tstp[1].'" title="Afficher le contenu de '.$tstp[1].'">'.$tstp[1].'</a>-'.$filesInfo[$i]['md5'].'</li>'.PHP_EOL;
+			$filesInfo[$i]['full_name'] = $file;
+			$filesInfo[$i]['short_name'] = $explodedFileName[0];
+			$filesInfo[$i]['timestamp'] = $tstp[1];
+			$filesInfo[$i]['md5'] = md5_file($contentDir.$file);
 
-		if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
-			//~ $tstp[1] === $_GET['id'] ? : $htmlMsg = '<p>OK</p>';
-			$tstp[1] === $_GET['id'] ? : $fileContent = file_get_contents(CONTENT_DIR.$file);
+			$htmlList .= '<li><a href="'.$_SERVER['SCRIPT_NAME'].'?id='.$tstp[1].'" title="Afficher le contenu de '.$tstp[1].'">'.$tstp[1].'</a>-'.$filesInfo[$i]['md5'].'</li>'.PHP_EOL;
+			$i++;
 		}
-		$i++;
 	}
+	return $htmlList;
 }
 
-// PRE-PROCESSING REGEX
-$fileContent = preg_replace($pattern , $replacement , $fileContent);
+function get_file_data($fileContent, $pattern=array() , $replacement=array())
+{
+	$organisedContent = array();
 
-// PROCESSING
-// FIXME: mauvaise recuperation des valeurs de dimensions (pixels)
-$splittedData = preg_split('#,#', $fileContent);
+	// PRE-PROCESSING REGEX
+	$fileContent = preg_replace($pattern, $replacement, $fileContent);
 
-foreach($splittedData as $row){
-	if(preg_match('#=#', $row) AND !preg_match('#{#', $row)){
-		$pieces = explode('=', $row);
-		$organisedContent[$pieces[0]] = $pieces[1];
+	// PROCESSING
+	// FIXME: mauvaise recuperation des valeurs de dimensions (pixels)
+	$splittedData = preg_split('#,#', $fileContent);
+
+	foreach($splittedData as $row){
+		if(preg_match('#=#', $row) AND !preg_match('#{#', $row)){
+			$pieces = explode('=', $row);
+			$organisedContent[$pieces[0]] = $pieces[1];
+		}
+		// TODO: don't flatten data
+		if(preg_match('#{#', $row)){
+			$pieces = explode('{', $row);
+			$nextPieces = explode('=', $pieces[1]);
+			// FIXME: Notice: Undefined offset: 1
+			$organisedContent[$nextPieces[0]] = $nextPieces[1];
+		}
 	}
-	// TODO: don't flatten data
-	if(preg_match('#{#', $row)){
-		$pieces = explode('{', $row);
-		$nextPieces = explode('=', $pieces[1]);
-		// FIXME: Notice: Undefined offset: 1
-		$organisedContent[$nextPieces[0]] = $nextPieces[1];
-	}
+	return $organisedContent;
+}
+
+
+/********
+ * WORK *
+ ********/
+
+$htmlList = get_file_list($htmlList);
+
+if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
+	$tstp = $_GET['id'];
+	$fileContent = file_get_contents(CONTENT_DIR.BASE_NAME.'-'.$tstp.'.txt');
+	$organisedContent = get_file_data($fileContent, $pattern, $replacement);
+	$htmlList = '<p><a href="'.$_SERVER['SCRIPT_NAME'].'" title="Retour index">Home</a></p>'.PHP_EOL;
+
 }
 
 // PRINTING HTML
