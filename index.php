@@ -61,8 +61,9 @@ foreach($filesList as $file) {
 		$filesInfo[$i]['full_name'] = $file;
 		$filesInfo[$i]['short_name'] = $explodedFileName[0];
 		$filesInfo[$i]['timestamp'] = $tstp[1];
+		$filesInfo[$i]['md5'] = md5_file(CONTENT_DIR.$file);
 
-		$htmlList .= '<li><a href="'.$_SERVER['SCRIPT_NAME'].'?id='.$tstp[1].'" title="Afficher le contenu de '.$tstp[1].'">'.$tstp[1].'</a></li>'.PHP_EOL;
+		$htmlList .= '<li><a href="'.$_SERVER['SCRIPT_NAME'].'?id='.$tstp[1].'" title="Afficher le contenu de '.$tstp[1].'">'.$tstp[1].'</a>-'.$filesInfo[$i]['md5'].'</li>'.PHP_EOL;
 
 		if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 			//~ $tstp[1] === $_GET['id'] ? : $htmlMsg = '<p>OK</p>';
