@@ -30,16 +30,16 @@
 /**********
  * CONFIG *
  **********/
+$debutScript = microtime(TRUE);
+$htmlList			= '';
+$html_content		= '<p>no data</p>';
+$organisedContent	= '<p>No valid ID</p>';
 
 define('CONTENT_DIR',	'contenu/');
 define('BASE_NAME',		'AndroidApplicationCrash');
 define('PATTERN',		'#AndroidApplicationCrash#');
 define('FILE_CONTENT',	'<p>Choississez un fichier...</p>');
 define('MENU_URL',		'<p><a href="'.$_SERVER['SCRIPT_NAME'].'" title="Retour index">Home</a> | <a href="'.$_SERVER['SCRIPT_NAME'].'?mode=report" title="Liste courte">Report</a></p>');
-
-$htmlList			= '';
-$html_content		= '<p>no data</p>';
-$organisedContent	= '<p>No valid ID</p>';
 
 // PATTERN/REPLACEMENT FOR PRE-PROCESSING
 $pattern[0] = '#, #';
@@ -72,7 +72,7 @@ $usefulKey = array(
 	//~ 'USER_APP_START_DATE'=> 'app_start_date',
 	'pda'				=> 'pda',
 	'USER_CRASH_DATE'	=> 'app_crash_date',
-	//~ 'STACK_TRACE'		=> 'trace',
+	'STACK_TRACE'		=> 'trace',
 	'LOGCAT'			=> 'log',
 	'REPORT_ID'			=> 'report_id'
 );
@@ -86,20 +86,21 @@ function get_file_list($contentDir=CONTENT_DIR, $pattern=PATTERN)
 {
 	$i=0;
 	$filesList	= scandir($contentDir);
-	$rawList	= array();
+	$fileList	= array();
 
 	foreach($filesList as $file) {
 
 		if(!is_dir($contentDir.$file) AND preg_match($pattern, $file)) {
 			$explodedFileName		= explode('.', $file);
 			$tstp					= explode('-', $explodedFileName[0]);
-			$rawList[$i]['tstp']	= $tstp[1];
-			$rawList[$i]['md5']		= md5_file($contentDir.$file);
+			$fileList[$i]['tstp']	= $tstp[1];
+			$fileList[$i]['md5']		= md5_file($contentDir.$file);
 
 			$i++;
 		}
 	}
-	return $rawList;
+
+	return array_reverse($fileList);
 }
 
 // GET HTML FILE LIST
@@ -136,7 +137,6 @@ function get_file_data($fileContent, $pattern=array() , $replacement=array())
 	$fileContent = preg_replace($pattern, $replacement, $fileContent);
 
 	// PROCESSING
-// FIXME: mauvaise recuperation des valeurs de dimensions (pixels)
 	$splittedData = preg_split('#,#', $fileContent);
 
 	foreach($splittedData as $row){
@@ -148,9 +148,8 @@ function get_file_data($fileContent, $pattern=array() , $replacement=array())
 		if(preg_match('#{#', $row)){
 			$pieces = explode('{', $row);
 			$nextPieces = explode('=', $pieces[1]);
-// FIXME: Notice: Undefined offset: 1
 
-			if (isset($nextPieces[1])) {
+			if (isset($nextPieces[1])) {		// subterfuge pour palier la mauvaise recuperation des valeurs de dimensions (pixels)
 				$organisedContent[$nextPieces[0]] = $nextPieces[1];
 			}
 		}
@@ -201,27 +200,23 @@ function array_to_table_html($sourceArray, $numCol = FALSE, $noRoof = FALSE)
  * WORK *
  ********/
 
-$htmlList			= get_html_file_list($htmlList);
-
 // SHOW FILE CONTENT
 if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 
 	$tstp				= $_GET['id'];
 	$fileContent		= file_get_contents(CONTENT_DIR.BASE_NAME.'-'.$tstp.'.txt');
 	$organisedContent	= get_file_data($fileContent, $pattern, $replacement);
-//~ $htmlList			= '<p><a href="'.$_SERVER['SCRIPT_NAME'].'" title="Retour index">Home</a></p>'.PHP_EOL;
-//~ $html_content = $htmlList;
 	$html_content = '<pre>'.print_r($organisedContent, TRUE).'</pre>';
 
 // LIST FILES SUMMARY
 } elseif (isset($_GET['mode']) AND $_GET['mode'] === 'report') {
-	$rawList	= get_file_list();
+	$fileList	= get_file_list();
 	$i=0;
 	$report = array();
 	$previousHash	= '';
 	$previousTstp	= '';
 
-	foreach($rawList as $file => $spec) {
+	foreach($fileList as $file => $spec) {
 		$fileContent		= file_get_contents(CONTENT_DIR.BASE_NAME.'-'.$spec["tstp"].'.txt');
 		$organisedContent	= get_file_data($fileContent, $pattern, $replacement);
 
@@ -238,9 +233,6 @@ if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 					$date = date_create_from_format("Y-m-d\TH:i:s.000P", $organisedContent[$source]);
 					$report[$i]['crash_date']	= date_format($date, 'Y-m-d');
 					$report[$i]['crash_time']	= date_format($date, 'H:i:s');
-
-//~ } elseif ($source == 'LOGCAT'){
-//~ $report[$i][$dest]	= '<span title="'.$organisedContent[$source].'">?</span>';
 
 				} else {
 					$report[$i][$dest]	= $organisedContent[$source];
@@ -265,8 +257,24 @@ if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 	}
 	$html_content = array_to_table_html($report, TRUE);
 
+// HOME PAGE
 } else {
-	$html_content = $htmlList;
+	$htmlList		= get_html_file_list($htmlList);
+	$html_content	= $htmlList;
+
 }
-echo MENU_URL;
-echo $html_content;
+
+
+// HTML RENDERING
+?>
+
+<?= MENU_URL; ?>
+<hr />
+<?= $html_content; ?>
+<hr />
+<?= MENU_URL;
+
+	$finScript	= microtime(TRUE);
+	$duree = $finScript-$debutScript;
+?>
+<p><small>[dur&eacute;e: <?= $duree;?>s]<small></p>
