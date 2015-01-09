@@ -34,6 +34,7 @@ $debutScript = microtime(TRUE);
 $htmlList			= '';
 $html_content		= '<p>no data</p>';
 $organisedContent	= '<p>No valid ID</p>';
+$stat_html			= '';
 
 define('CONTENT_DIR',	'contenu/');
 define('BASE_NAME',		'AndroidApplicationCrash');
@@ -234,6 +235,21 @@ if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 					$report[$i]['crash_date']	= date_format($date, 'Y-m-d');
 					$report[$i]['crash_time']	= date_format($date, 'H:i:s');
 
+				// COUNT PDA ITERATION
+				} elseif ($source == 'pda') {
+					!isset($pdaList[$organisedContent[$source]]) ? $pdaList[$organisedContent[$source]] = 1 : $pdaList[$organisedContent[$source]]++;
+					$report[$i][$dest]	= $organisedContent[$source];
+
+				// COUNT STACK TRACE ITERATION
+				} elseif ($source == 'STACK_TRACE') {
+					!isset($stackTraceList[$organisedContent[$source]]) ? $stackTraceList[$organisedContent[$source]] = 1 : $stackTraceList[$organisedContent[$source]]++;
+					$report[$i][$dest]	= $organisedContent[$source];
+
+				// COUNT LOGCAT ITERATION
+				} elseif ($source == 'LOGCAT') {
+					!isset($logcatList[$organisedContent[$source]]) ? $logcatList[$organisedContent[$source]] = 1 : $logcatList[$organisedContent[$source]]++;
+					$report[$i][$dest]	= $organisedContent[$source];
+
 				} else {
 					$report[$i][$dest]	= $organisedContent[$source];
 				}
@@ -255,7 +271,42 @@ if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 		$previousTstp	= $spec['tstp'];
 		$i++;
 	}
+
+	// STAT COOKING
+	arsort($pdaList);
+	asort($logcatList);
+	asort($stackTraceList);
+	$j = $i-1;
+
+	$pdaKeyList = array_keys($pdaList);
 	$html_content = array_to_table_html($report, TRUE);
+
+$stat_html = '<p>
+	<strong>'.$i.'</strong> fichiers pars&eacute;s |
+	Fichier le plus r&eacute;cent : <strong>'.$report[0]["crash_date"].'</strong> |
+	Fichier le plus ancien : <strong>'.$report[$j]["crash_date"].'</strong>
+</p>
+<p>Nombres de fichiers par terminal:
+<table style="border:1px solid black;">
+	<tr>
+		<th>Terminal #</th>';
+
+foreach($pdaKeyList as $label) {
+	$stat_html .= '		<th style="border:1px solid black;">'.$label.'</th>';
+}
+
+$stat_html .= '	</tr>
+	<tr>
+		<td>Nbre</td>';
+
+foreach($pdaList as $nbre) {
+	$stat_html .= '<td style="border:1px solid black;">'.$nbre.'</td>';
+}
+
+$stat_html .= '</tr>
+</table>
+</p>';
+
 
 // HOME PAGE
 } else {
@@ -264,11 +315,21 @@ if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 
 }
 
-
-// HTML RENDERING
+/********
+ * HTML *
+ ********/
 ?>
 
+<!DOCTYPE html>
+<html>
+<head><title><?= BASE_NAME;?> parser</title></head>
+<body>
+
+<h3>Parsage des fichiers <?= BASE_NAME; ?></h3>
+
 <?= MENU_URL; ?>
+<?= $stat_html; ?>
+
 <hr />
 <?= $html_content; ?>
 <hr />
@@ -277,4 +338,7 @@ if(isset($_GET['id']) AND ctype_digit($_GET['id'])){
 	$finScript	= microtime(TRUE);
 	$duree = $finScript-$debutScript;
 ?>
-<p><small>[dur&eacute;e: <?= $duree;?>s]<small></p>
+
+<p><small>[dur&eacute;e: <?= $duree;?> s]</small></p>
+</body>
+</html>
